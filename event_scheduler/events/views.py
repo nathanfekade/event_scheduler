@@ -12,47 +12,18 @@ from rest_framework.authentication import TokenAuthentication
 from django.utils import timezone
 from .models import Event
 from .serializers import EventSerializer
-from .utils import get_event_occurrences
 
 class EventListView(APIView):
     """View to list or create events for authenticated users."""
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication]
 
-    def get(self, request: Any) -> Response:
-        """
-        Retrieve all event occurrences for
-        the authenticated user from the current time (UTC).
-        """
-        events = Event.objects.filter(user=request.user)
-        start_date = timezone.now().astimezone(dt_timezone.utc)
 
-        occurrences = []
-        for event in events:
-            event_occurrences = get_event_occurrences(
-                event,
-                start_date,
-                max_occurrences=1000,
-                max_future_years=10
-            )
-            for occ in event_occurrences:
-                end_time = None
-                if not event.is_all_day and event.end_time:
-                    duration = event.end_time - event.start_time
-                    end_time = occ + duration
-                occurrences.append({
-                    'event_id': event.id,
-                    'title': event.title,
-                    'start': occ.isoformat(),
-                    'end': end_time.isoformat() if end_time else None,
-                    'is_all_day': event.is_all_day,
-                    'description': event.description
-                })
-
-        occurrences.sort(key=lambda x: x['start'])
-
-        return Response(occurrences, status=status.HTTP_200_OK)
-
+    def get(self, request, format=None):
+        events = Event.objects.all()
+        serializer = EventSerializer(events, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
     def post(self, request: Any) -> Response:
         """
         Create a new event for the authenticated user.
